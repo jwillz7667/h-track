@@ -1,0 +1,6 @@
+{
+  "name": "Hantavirus Tracker",
+  "description": "ESPN-style dashboard tracking Hantavirus cases globally with live simulated updates.",
+  "requestFramePermissions": [],
+  "majorCapabilities": []
+}
