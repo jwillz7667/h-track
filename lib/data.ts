@@ -8,6 +8,7 @@ export interface CountryCaseData {
   deaths: number;
   trend: 'up' | 'down' | 'flat';
   history: { date: string; cases: number }[];
+  coordinates: [number, number];
 }
 
 export interface NewsUpdate {
@@ -71,22 +72,22 @@ const generateHistory = (baseCases: number, days: number) => {
 // ... rest of the file ...
 
 export const initialCountries: CountryCaseData[] = [
-  { country: "Argentina", code: "ARG", totalCases: 215, activeCases: 42, deaths: 31, trend: 'up', history: generateHistory(180, 30) },
-  { country: "United States", code: "USA", totalCases: 198, activeCases: 15, deaths: 22, trend: 'flat', history: generateHistory(170, 30) },
-  { country: "Chile", code: "CHL", totalCases: 145, activeCases: 25, deaths: 18, trend: 'up', history: generateHistory(110, 30) },
-  { country: "Brazil", code: "BRA", totalCases: 89, activeCases: 8, deaths: 12, trend: 'down', history: generateHistory(85, 30) },
-  { country: "China", code: "CHN", totalCases: 450, activeCases: 12, deaths: 60, trend: 'flat', history: generateHistory(400, 30) },
-  { country: "Bolivia", code: "BOL", totalCases: 54, activeCases: 18, deaths: 9, trend: 'up', history: generateHistory(30, 30) },
-  { country: "Paraguay", code: "PRY", totalCases: 34, activeCases: 6, deaths: 5, trend: 'flat', history: generateHistory(25, 30) },
-  { country: "Uruguay", code: "URY", totalCases: 21, activeCases: 2, deaths: 3, trend: 'down', history: generateHistory(15, 30) },
-  { country: "Canada", code: "CAN", totalCases: 18, activeCases: 1, deaths: 2, trend: 'down', history: generateHistory(12, 30) },
-  { country: "Russia", code: "RUS", totalCases: 310, activeCases: 45, deaths: 15, trend: 'up', history: generateHistory(250, 30) },
-  { country: "South Korea", code: "KOR", totalCases: 150, activeCases: 10, deaths: 8, trend: 'flat', history: generateHistory(130, 30) },
-  { country: "Panama", code: "PAN", totalCases: 45, activeCases: 5, deaths: 7, trend: 'up', history: generateHistory(30, 30) },
-  { country: "Germany", code: "DEU", totalCases: 85, activeCases: 4, deaths: 1, trend: 'down', history: generateHistory(80, 30) },
-  { country: "France", code: "FRA", totalCases: 65, activeCases: 3, deaths: 0, trend: 'down', history: generateHistory(60, 30) },
-  { country: "Sweden", code: "SWE", totalCases: 110, activeCases: 8, deaths: 2, trend: 'flat', history: generateHistory(100, 30) },
-  { country: "Finland", code: "FIN", totalCases: 95, activeCases: 5, deaths: 1, trend: 'down', history: generateHistory(85, 30) },
+  { country: "Argentina", code: "ARG", totalCases: 215, activeCases: 42, deaths: 31, trend: 'up', history: generateHistory(180, 30), coordinates: [-63.6167, -38.4161] },
+  { country: "United States", code: "USA", totalCases: 198, activeCases: 15, deaths: 22, trend: 'flat', history: generateHistory(170, 30), coordinates: [-95.7129, 37.0902] },
+  { country: "Chile", code: "CHL", totalCases: 145, activeCases: 25, deaths: 18, trend: 'up', history: generateHistory(110, 30), coordinates: [-71.543, -35.6751] },
+  { country: "Brazil", code: "BRA", totalCases: 89, activeCases: 8, deaths: 12, trend: 'down', history: generateHistory(85, 30), coordinates: [-51.9253, -14.2350] },
+  { country: "China", code: "CHN", totalCases: 450, activeCases: 12, deaths: 60, trend: 'flat', history: generateHistory(400, 30), coordinates: [104.1954, 35.8617] },
+  { country: "Bolivia", code: "BOL", totalCases: 54, activeCases: 18, deaths: 9, trend: 'up', history: generateHistory(30, 30), coordinates: [-63.5887, -16.2902] },
+  { country: "Paraguay", code: "PRY", totalCases: 34, activeCases: 6, deaths: 5, trend: 'flat', history: generateHistory(25, 30), coordinates: [-58.4438, -23.4425] },
+  { country: "Uruguay", code: "URY", totalCases: 21, activeCases: 2, deaths: 3, trend: 'down', history: generateHistory(15, 30), coordinates: [-55.7658, -32.5228] },
+  { country: "Canada", code: "CAN", totalCases: 18, activeCases: 1, deaths: 2, trend: 'down', history: generateHistory(12, 30), coordinates: [-106.3468, 56.1304] },
+  { country: "Russia", code: "RUS", totalCases: 310, activeCases: 45, deaths: 15, trend: 'up', history: generateHistory(250, 30), coordinates: [105.3188, 61.5240] },
+  { country: "South Korea", code: "KOR", totalCases: 150, activeCases: 10, deaths: 8, trend: 'flat', history: generateHistory(130, 30), coordinates: [127.7669, 35.9078] },
+  { country: "Panama", code: "PAN", totalCases: 45, activeCases: 5, deaths: 7, trend: 'up', history: generateHistory(30, 30), coordinates: [-80.7821, 8.5380] },
+  { country: "Germany", code: "DEU", totalCases: 85, activeCases: 4, deaths: 1, trend: 'down', history: generateHistory(80, 30), coordinates: [10.4515, 51.1657] },
+  { country: "France", code: "FRA", totalCases: 65, activeCases: 3, deaths: 0, trend: 'down', history: generateHistory(60, 30), coordinates: [2.2137, 46.2276] },
+  { country: "Sweden", code: "SWE", totalCases: 110, activeCases: 8, deaths: 2, trend: 'flat', history: generateHistory(100, 30), coordinates: [18.6435, 60.1282] },
+  { country: "Finland", code: "FIN", totalCases: 95, activeCases: 5, deaths: 1, trend: 'down', history: generateHistory(85, 30), coordinates: [25.7482, 61.9241] },
 ];
 
 export const initialNews: NewsUpdate[] = [

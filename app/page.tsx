@@ -3,13 +3,22 @@
 import React, { useState, useEffect } from 'react';
 import { initialCountries, initialNews, CountryCaseData, NewsUpdate } from '../lib/data';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import { ComposableMap, Geographies, Geography, Marker } from 'react-simple-maps';
 import { Globe, TrendingUp, TrendingDown, Minus } from 'lucide-react';
 import { format } from 'date-fns';
 
 export default function DashboardPage() {
   const [countries, setCountries] = useState<CountryCaseData[]>(initialCountries);
   const [news, setNews] = useState<NewsUpdate[]>(initialNews);
+  const [showMap, setShowMap] = useState<boolean>(false);
   
+  useEffect(() => {
+    const cycleInterval = setInterval(() => {
+      setShowMap(prev => !prev);
+    }, 15000); // 15 seconds
+    return () => clearInterval(cycleInterval);
+  }, []);
+
   useEffect(() => {
     let tickCount = 0;
     
@@ -224,31 +233,74 @@ export default function DashboardPage() {
             </div>
         </section>
 
-        {/* Center 2 - Charts & Distributions */}
+        {/* Center 2 - Charts & Distributions OR World Map */}
         <section className="flex-[1.5] flex flex-col gap-4 overflow-hidden min-w-[350px]">
-            <div className="bg-black/40 border border-white/5 rounded flex flex-col shadow-inner flex-1 overflow-hidden">
+            <div className="bg-black/40 border border-white/5 rounded flex flex-col shadow-inner flex-1 overflow-hidden transition-all duration-1000 ease-in-out relative">
                 <div className="p-3 flex justify-between items-center bg-[#111] border-b border-white/10 shrink-0">
-                    <h2 className="text-sm font-black italic uppercase">Global Trajectory (30 Days)</h2>
+                    <h2 className="text-sm font-black italic uppercase">
+                        {showMap ? "Live Global Hotspots" : "Global Trajectory (30 Days)"}
+                    </h2>
                 </div>
-                <div className="flex-1 w-full p-4">
-                    <ResponsiveContainer width="100%" height="100%">
-                        <AreaChart data={globalTimeline} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-                            <defs>
-                                <linearGradient id="colorCases" x1="0" y1="0" x2="0" y2="1">
-                                <stop offset="5%" stopColor="#CC0000" stopOpacity={0.8}/>
-                                <stop offset="95%" stopColor="#CC0000" stopOpacity={0}/>
-                                </linearGradient>
-                            </defs>
-                            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#333" />
-                            <XAxis dataKey="date" tick={{fontSize: 10, fill: '#9CA3AF'}} tickMargin={10} minTickGap={30} />
-                            <YAxis tick={{fontSize: 10, fill: '#9CA3AF', fontWeight: 'bold'}} axisLine={false} tickLine={false} />
-                            <Tooltip 
-                                contentStyle={{ backgroundColor: '#111', color: '#F9FAFB', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '4px', fontStyle: 'italic', fontWeight: 'bold' }}
-                                itemStyle={{ color: '#CC0000' }}
-                            />
-                            <Area type="monotone" dataKey="totalCases" stroke="#CC0000" strokeWidth={3} fillOpacity={1} fill="url(#colorCases)" isAnimationActive={false} />
-                        </AreaChart>
-                    </ResponsiveContainer>
+                <div className="flex-1 w-full p-4 relative">
+                    {showMap ? (
+                        <div className="absolute inset-0 flex items-center justify-center p-2 bg-[radial-gradient(circle_at_center,_#111_0%,_#0a0a0a_100%)]">
+                            <ComposableMap 
+                                projectionConfig={{ scale: 140 }} 
+                                width={800} height={400} 
+                                style={{ width: "100%", height: "100%" }}
+                            >
+                                <Geographies geography="https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json">
+                                    {({ geographies }) =>
+                                    geographies.map((geo) => (
+                                        <Geography 
+                                            key={geo.rsmKey} 
+                                            geography={geo} 
+                                            fill="#1a1a1a" 
+                                            stroke="#333" 
+                                            strokeWidth={0.5} 
+                                            style={{
+                                                default: { outline: "none" },
+                                                hover: { outline: "none" },
+                                                pressed: { outline: "none" },
+                                            }}
+                                        />
+                                    ))
+                                    }
+                                </Geographies>
+                                {countries.map(({ code, coordinates, activeCases }) => {
+                                    if (activeCases === 0) return null;
+                                    const maxCases = Math.max(...countries.map(c => c.activeCases));
+                                    const size = Math.max(3, (activeCases / maxCases) * 15);
+                                    
+                                    return (
+                                        <Marker key={code} coordinates={coordinates}>
+                                            <circle r={size} fill="#CC0000" fillOpacity={0.4} className="animate-pulse" />
+                                            <circle r={size / 2} fill="#FF3333" />
+                                        </Marker>
+                                    );
+                                })}
+                            </ComposableMap>
+                        </div>
+                    ) : (
+                        <ResponsiveContainer width="100%" height="100%">
+                            <AreaChart data={globalTimeline} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                                <defs>
+                                    <linearGradient id="colorCases" x1="0" y1="0" x2="0" y2="1">
+                                    <stop offset="5%" stopColor="#CC0000" stopOpacity={0.8}/>
+                                    <stop offset="95%" stopColor="#CC0000" stopOpacity={0}/>
+                                    </linearGradient>
+                                </defs>
+                                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#333" />
+                                <XAxis dataKey="date" tick={{fontSize: 10, fill: '#9CA3AF'}} tickMargin={10} minTickGap={30} />
+                                <YAxis tick={{fontSize: 10, fill: '#9CA3AF', fontWeight: 'bold'}} axisLine={false} tickLine={false} />
+                                <Tooltip 
+                                    contentStyle={{ backgroundColor: '#111', color: '#F9FAFB', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '4px', fontStyle: 'italic', fontWeight: 'bold' }}
+                                    itemStyle={{ color: '#CC0000' }}
+                                />
+                                <Area type="monotone" dataKey="totalCases" stroke="#CC0000" strokeWidth={3} fillOpacity={1} fill="url(#colorCases)" isAnimationActive={false} />
+                            </AreaChart>
+                        </ResponsiveContainer>
+                    )}
                 </div>
             </div>
             
