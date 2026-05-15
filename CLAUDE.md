@@ -78,6 +78,18 @@ hantacount.com /api/cases/<date> × N       ┘─▶ lib/hantacount.ts (aggrega
 - `.github/workflows/ci.yml` — typecheck + build on every push/PR.
 - `.github/workflows/deploy.yml` — Railway deploy on push to `main`. Skips cleanly when `RAILWAY_TOKEN` secret is not set.
 
+## Broadcast audio
+
+The page wires an HTML5 `<audio>` element to `/audio/broadcast.mp3` (served out of `public/audio/`). It auto-plays at 35% volume when `?broadcast=1` is set; otherwise a small mute/unmute toggle in the header lets the operator preview it. The folder is shipped empty — drop a single MP3 there to enable the audio bed; the element silently 404s and the dashboard keeps working when the file is missing.
+
+For a 24/7 YouTube livestream the music must be both royalty-free AND Content-ID-safe (truly free music can still trip auto-flagging if the artist registered the track with a monetization service). Safest sources for Halo-style ominous orchestral/choral:
+
+- **Pixabay Music** (https://pixabay.com/music/) — Pixabay Content License, monetizable, no attribution required. Filter by mood "Epic" / "Dramatic" / "Dark".
+- **YouTube Audio Library** (inside YouTube Studio → Audio Library) — guaranteed safe on YouTube, filter to "no attribution required" + Genre "Cinematic" or "Ambient".
+- **Free Music Archive** (https://freemusicarchive.org/) — verify each track's license individually; look for CC0 or "commercial OK".
+
+Pick something long-form (5+ min) so the seamless-loop attribute hides the seam. There is no crossfade implemented today — if the loop seam becomes audible on stream, add a second `<audio>` element and crossfade at the end of each loop.
+
 ## Conventions specific to this repo
 
 - Path alias `@/*` → repo root (see `tsconfig.json`).
