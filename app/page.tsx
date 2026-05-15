@@ -1,7 +1,7 @@
 'use client';
 
 import React, { memo, useEffect, useMemo, useState } from 'react';
-import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import { ComposedChart, Bar, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { ComposableMap, Geographies, Geography, Marker } from 'react-simple-maps';
 import { Globe, ExternalLink } from 'lucide-react';
 import { format, parseISO, formatDistanceToNowStrict } from 'date-fns';
@@ -92,12 +92,17 @@ export default function DashboardPage() {
   const attribution = data?.attribution;
 
   const globalTimeline = useMemo(() => {
-    if (countries.length === 0) return [] as { date: string; totalCases: number }[];
+    if (countries.length === 0) {
+      return [] as { date: string; totalCases: number; newCases: number }[];
+    }
     const days = countries[0].history.length;
-    return Array.from({ length: days }, (_, i) => ({
-      date: countries[0].history[i]?.date ?? '',
-      totalCases: countries.reduce((acc, c) => acc + (c.history[i]?.cases ?? 0), 0),
-    }));
+    let prev = 0;
+    return Array.from({ length: days }, (_, i) => {
+      const totalCases = countries.reduce((acc, c) => acc + (c.history[i]?.cases ?? 0), 0);
+      const newCases = Math.max(0, totalCases - prev);
+      prev = totalCases;
+      return { date: countries[0].history[i]?.date ?? '', totalCases, newCases };
+    });
   }, [countries]);
 
   const sortedCountries = useMemo(
@@ -181,7 +186,7 @@ export default function DashboardPage() {
           <span className="transform skew-x-[15deg]">Breaking News</span>
         </div>
         <div className="flex-grow overflow-hidden flex items-center relative gap-12 whitespace-nowrap px-4 font-bold text-xs tracking-wide text-gray-300 italic">
-          <div className="whitespace-nowrap inline-block" style={{ animation: 'ticker 240s linear infinite' }}>
+          <div className="whitespace-nowrap inline-block" style={{ animation: 'ticker 600s linear infinite' }}>
             {news.map((n, i) => (
               <span key={`a-${i}`} className="mx-6 text-white">
                 <span className="text-[#CC0000] font-black mr-2 uppercase">{n.country}:</span>
@@ -597,19 +602,42 @@ const WorldMap = memo(
   (prev, next) => prev.lastUpdated === next.lastUpdated,
 );
 
-function TrajectoryChart({ data }: { data: { date: string; totalCases: number }[] }) {
+function TrajectoryChart({ data }: { data: { date: string; totalCases: number; newCases: number }[] }) {
   return (
     <ResponsiveContainer width="100%" height="100%">
-      <AreaChart data={data} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+      <ComposedChart data={data} margin={{ top: 16, right: 24, left: -8, bottom: 0 }}>
         <defs>
-          <linearGradient id="colorCases" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="5%" stopColor="#CC0000" stopOpacity={0.8} />
-            <stop offset="95%" stopColor="#CC0000" stopOpacity={0} />
+          <linearGradient id="colorBar" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="#CC0000" stopOpacity={0.95} />
+            <stop offset="100%" stopColor="#CC0000" stopOpacity={0.45} />
           </linearGradient>
         </defs>
-        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#333" />
-        <XAxis dataKey="date" tick={{ fontSize: 10, fill: '#9CA3AF' }} tickMargin={10} minTickGap={30} />
-        <YAxis tick={{ fontSize: 10, fill: '#9CA3AF', fontWeight: 'bold' }} axisLine={false} tickLine={false} />
+        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#222" />
+        <XAxis
+          dataKey="date"
+          tick={{ fontSize: 10, fill: '#9CA3AF', fontWeight: 'bold' }}
+          tickMargin={10}
+          axisLine={false}
+          tickLine={false}
+          tickFormatter={(d: string) => (d ? format(parseISO(d), 'MMM d') : '')}
+        />
+        <YAxis
+          yAxisId="left"
+          tick={{ fontSize: 10, fill: '#9CA3AF', fontWeight: 'bold' }}
+          axisLine={false}
+          tickLine={false}
+          allowDecimals={false}
+          label={{ value: 'NEW', angle: -90, position: 'insideLeft', offset: 16, fill: '#666', fontSize: 9, fontWeight: 'bold' }}
+        />
+        <YAxis
+          yAxisId="right"
+          orientation="right"
+          tick={{ fontSize: 10, fill: '#666', fontWeight: 'bold' }}
+          axisLine={false}
+          tickLine={false}
+          allowDecimals={false}
+          label={{ value: 'TOTAL', angle: 90, position: 'insideRight', offset: 16, fill: '#666', fontSize: 9, fontWeight: 'bold' }}
+        />
         <Tooltip
           contentStyle={{
             backgroundColor: '#111',
@@ -619,18 +647,30 @@ function TrajectoryChart({ data }: { data: { date: string; totalCases: number }[
             fontStyle: 'italic',
             fontWeight: 'bold',
           }}
-          itemStyle={{ color: '#CC0000' }}
+          labelFormatter={(d) => (typeof d === 'string' && d ? format(parseISO(d), 'EEE MMM d') : '')}
+          itemStyle={{ color: '#F9FAFB' }}
         />
-        <Area
-          type="monotone"
+        <Bar
+          yAxisId="left"
+          dataKey="newCases"
+          name="New cases"
+          fill="url(#colorBar)"
+          radius={[3, 3, 0, 0]}
+          isAnimationActive={false}
+          maxBarSize={48}
+        />
+        <Line
+          yAxisId="right"
+          type="linear"
           dataKey="totalCases"
-          stroke="#CC0000"
-          strokeWidth={3}
-          fillOpacity={1}
-          fill="url(#colorCases)"
+          name="Cumulative"
+          stroke="#FFFFFF"
+          strokeWidth={2}
+          dot={{ fill: '#FFFFFF', r: 3, strokeWidth: 0 }}
+          activeDot={{ r: 5, stroke: '#CC0000', strokeWidth: 2, fill: '#FFFFFF' }}
           isAnimationActive={false}
         />
-      </AreaChart>
+      </ComposedChart>
     </ResponsiveContainer>
   );
 }
