@@ -1,9 +1,8 @@
 'use client';
 
-import React, { memo, useEffect, useMemo, useState } from 'react';
-import { ComposedChart, Bar, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import React, { memo, useEffect, useMemo, useRef, useState } from 'react';
 import { ComposableMap, Geographies, Geography, Marker } from 'react-simple-maps';
-import { Globe, ExternalLink } from 'lucide-react';
+import { Globe, ExternalLink, Volume2, VolumeX } from 'lucide-react';
 import { format, parseISO, formatDistanceToNowStrict } from 'date-fns';
 import { motion, useSpring, useTransform } from 'motion/react';
 import type { CountryCaseData, DashboardData } from '@/lib/hantacount';
@@ -13,7 +12,7 @@ const VIEW_CYCLE_MS = 15_000;
 const CLOCK_TICK_MS = 60_000;
 const STALE_PILL_THRESHOLD_SECONDS = 900; // 15 min
 
-type ViewMode = 0 | 1 | 2; // 0 = map, 1 = trajectory, 2 = spotlight
+type ViewMode = 0 | 1; // 0 = map, 1 = spotlight
 
 const TOPOJSON_URL = 'https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json';
 
@@ -23,6 +22,8 @@ export default function DashboardPage() {
   const [viewTick, setViewTick] = useState(0);
   const [clock, setClock] = useState<Date | null>(null);
   const [broadcast, setBroadcast] = useState(false);
+  const [audioOn, setAudioOn] = useState(false);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
 
   // Read broadcast flag post-mount so we don't break Next.js static rendering
   // with useSearchParams. ?broadcast=1 bumps font scale + hides hover.
@@ -30,6 +31,31 @@ export default function DashboardPage() {
     const params = new URLSearchParams(window.location.search);
     setBroadcast(params.get('broadcast') === '1');
   }, []);
+
+  // Auto-start the broadcast audio bed in OBS broadcast mode. We don't try
+  // autoplay outside broadcast mode because the browser will block it without
+  // a prior user gesture; the manual toggle button handles that case.
+  useEffect(() => {
+    if (!broadcast) return;
+    const audio = audioRef.current;
+    if (!audio) return;
+    audio.volume = 0.35;
+    audio.play().then(() => setAudioOn(true)).catch(() => {
+      // Autoplay blocked — operator can hit the toggle to start manually.
+    });
+  }, [broadcast]);
+
+  const toggleAudio = () => {
+    const audio = audioRef.current;
+    if (!audio) return;
+    if (audioOn) {
+      audio.pause();
+      setAudioOn(false);
+    } else {
+      audio.volume = 0.35;
+      audio.play().then(() => setAudioOn(true)).catch(() => {});
+    }
+  };
 
   // Wall clock + view rotation. Two cheap setIntervals — not drift-sensitive
   // (60s and 15s ticks don't compound visibly even over days).
@@ -91,20 +117,6 @@ export default function DashboardPage() {
   const summary = data?.summary;
   const attribution = data?.attribution;
 
-  const globalTimeline = useMemo(() => {
-    if (countries.length === 0) {
-      return [] as { date: string; totalCases: number; newCases: number }[];
-    }
-    const days = countries[0].history.length;
-    let prev = 0;
-    return Array.from({ length: days }, (_, i) => {
-      const totalCases = countries.reduce((acc, c) => acc + (c.history[i]?.cases ?? 0), 0);
-      const newCases = Math.max(0, totalCases - prev);
-      prev = totalCases;
-      return { date: countries[0].history[i]?.date ?? '', totalCases, newCases };
-    });
-  }, [countries]);
-
   const sortedCountries = useMemo(
     () => [...countries].sort((a, b) => b.totalCases - a.totalCases),
     [countries],
@@ -144,11 +156,10 @@ export default function DashboardPage() {
   const cachedAt = data.cachedAt ? parseISO(data.cachedAt) : null;
   const cacheAgeSeconds = cachedAt ? Math.floor((Date.now() - cachedAt.getTime()) / 1000) : 0;
   const isStale = data.stale === true || cacheAgeSeconds > STALE_PILL_THRESHOLD_SECONDS;
-  const trajectoryDays = countries[0]?.history.length ?? 0;
-  const viewMode: ViewMode = (viewTick % 3) as ViewMode;
+  const viewMode: ViewMode = (viewTick % 2) as ViewMode;
   const spotlightCountry =
     spotlightPool.length > 0
-      ? spotlightPool[Math.floor(viewTick / 3) % spotlightPool.length]
+      ? spotlightPool[Math.floor(viewTick / 2) % spotlightPool.length]
       : null;
 
   return (
@@ -177,8 +188,24 @@ export default function DashboardPage() {
               Now: {format(clock, 'HH:mm')}
             </div>
           )}
+          {!broadcast && (
+            <button
+              type="button"
+              onClick={toggleAudio}
+              aria-label={audioOn ? 'Mute broadcast bed' : 'Play broadcast bed'}
+              title={audioOn ? 'Mute broadcast bed' : 'Play broadcast bed'}
+              className="bg-black/20 hover:bg-black/40 transition px-2.5 py-1.5 rounded"
+            >
+              {audioOn ? <Volume2 className="w-3.5 h-3.5" /> : <VolumeX className="w-3.5 h-3.5" />}
+            </button>
+          )}
         </div>
       </header>
+
+      {/* Broadcast audio bed. Drop a royalty-free orchestral/ambient loop at
+          /public/audio/broadcast.mp3 — auto-plays in ?broadcast=1, manually
+          toggleable otherwise. See CLAUDE.md → Broadcast audio for sources. */}
+      <audio ref={audioRef} src="/audio/broadcast.mp3" loop preload="auto" />
 
       {/* Ticker Below Header */}
       <div className="bg-[#1a1a1a] h-8 border-b border-white/10 flex items-center overflow-hidden shrink-0">
@@ -276,21 +303,20 @@ export default function DashboardPage() {
           </div>
         </section>
 
-        {/* Center 2 - Rotating view: Map / Trajectory / Country Spotlight */}
+        {/* Center 2 - Rotating view: Map / Country Spotlight */}
         <section className="flex-[1.5] flex flex-col gap-4 overflow-hidden min-w-[350px]">
           <div className="bg-black/40 border border-white/5 rounded flex flex-col shadow-inner flex-1 overflow-hidden transition-all duration-1000 ease-in-out relative">
             <div className="p-3 flex justify-between items-center bg-[#111] border-b border-white/10 shrink-0">
               <h2 className="text-sm font-black italic uppercase">
                 {viewMode === 0 && 'Live Global Hotspots'}
-                {viewMode === 1 && `Outbreak Trajectory · ${trajectoryDays}d`}
-                {viewMode === 2 && spotlightCountry
+                {viewMode === 1 && spotlightCountry
                   ? `Country Spotlight · ${spotlightCountry.country}`
-                  : viewMode === 2
+                  : viewMode === 1
                     ? 'Country Spotlight'
                     : null}
               </h2>
               <div className="flex gap-1">
-                {[0, 1, 2].map((i) => (
+                {[0, 1].map((i) => (
                   <span
                     key={i}
                     className={`w-1.5 h-1.5 rounded-full ${
@@ -304,8 +330,7 @@ export default function DashboardPage() {
               {viewMode === 0 && (
                 <WorldMap countries={countries} lastUpdated={data.lastUpdated} />
               )}
-              {viewMode === 1 && <TrajectoryChart data={globalTimeline} />}
-              {viewMode === 2 && spotlightCountry && (
+              {viewMode === 1 && spotlightCountry && (
                 <CountrySpotlight country={spotlightCountry} />
               )}
             </div>
@@ -601,79 +626,6 @@ const WorldMap = memo(
   },
   (prev, next) => prev.lastUpdated === next.lastUpdated,
 );
-
-function TrajectoryChart({ data }: { data: { date: string; totalCases: number; newCases: number }[] }) {
-  return (
-    <ResponsiveContainer width="100%" height="100%">
-      <ComposedChart data={data} margin={{ top: 16, right: 24, left: -8, bottom: 0 }}>
-        <defs>
-          <linearGradient id="colorBar" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="#CC0000" stopOpacity={0.95} />
-            <stop offset="100%" stopColor="#CC0000" stopOpacity={0.45} />
-          </linearGradient>
-        </defs>
-        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#222" />
-        <XAxis
-          dataKey="date"
-          tick={{ fontSize: 10, fill: '#9CA3AF', fontWeight: 'bold' }}
-          tickMargin={10}
-          axisLine={false}
-          tickLine={false}
-          tickFormatter={(d: string) => (d ? format(parseISO(d), 'MMM d') : '')}
-        />
-        <YAxis
-          yAxisId="left"
-          tick={{ fontSize: 10, fill: '#9CA3AF', fontWeight: 'bold' }}
-          axisLine={false}
-          tickLine={false}
-          allowDecimals={false}
-          label={{ value: 'NEW', angle: -90, position: 'insideLeft', offset: 16, fill: '#666', fontSize: 9, fontWeight: 'bold' }}
-        />
-        <YAxis
-          yAxisId="right"
-          orientation="right"
-          tick={{ fontSize: 10, fill: '#666', fontWeight: 'bold' }}
-          axisLine={false}
-          tickLine={false}
-          allowDecimals={false}
-          label={{ value: 'TOTAL', angle: 90, position: 'insideRight', offset: 16, fill: '#666', fontSize: 9, fontWeight: 'bold' }}
-        />
-        <Tooltip
-          contentStyle={{
-            backgroundColor: '#111',
-            color: '#F9FAFB',
-            border: '1px solid rgba(255,255,255,0.1)',
-            borderRadius: '4px',
-            fontStyle: 'italic',
-            fontWeight: 'bold',
-          }}
-          labelFormatter={(d) => (typeof d === 'string' && d ? format(parseISO(d), 'EEE MMM d') : '')}
-          itemStyle={{ color: '#F9FAFB' }}
-        />
-        <Bar
-          yAxisId="left"
-          dataKey="newCases"
-          name="New cases"
-          fill="url(#colorBar)"
-          radius={[3, 3, 0, 0]}
-          isAnimationActive={false}
-          maxBarSize={48}
-        />
-        <Line
-          yAxisId="right"
-          type="linear"
-          dataKey="totalCases"
-          name="Cumulative"
-          stroke="#FFFFFF"
-          strokeWidth={2}
-          dot={{ fill: '#FFFFFF', r: 3, strokeWidth: 0 }}
-          activeDot={{ r: 5, stroke: '#CC0000', strokeWidth: 2, fill: '#FFFFFF' }}
-          isAnimationActive={false}
-        />
-      </ComposedChart>
-    </ResponsiveContainer>
-  );
-}
 
 function CountrySpotlight({ country }: { country: CountryCaseData }) {
   return (
