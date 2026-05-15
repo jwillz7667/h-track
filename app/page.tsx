@@ -181,7 +181,7 @@ export default function DashboardPage() {
           <span className="transform skew-x-[15deg]">Breaking News</span>
         </div>
         <div className="flex-grow overflow-hidden flex items-center relative gap-12 whitespace-nowrap px-4 font-bold text-xs tracking-wide text-gray-300 italic">
-          <div className="whitespace-nowrap inline-block" style={{ animation: 'ticker 90s linear infinite' }}>
+          <div className="whitespace-nowrap inline-block" style={{ animation: 'ticker 240s linear infinite' }}>
             {news.map((n, i) => (
               <span key={`a-${i}`} className="mx-6 text-white">
                 <span className="text-[#CC0000] font-black mr-2 uppercase">{n.country}:</span>
