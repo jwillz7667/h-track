@@ -22,15 +22,34 @@ export default function DashboardPage() {
   const [viewTick, setViewTick] = useState(0);
   const [clock, setClock] = useState<Date | null>(null);
   const [broadcast, setBroadcast] = useState(false);
+  const [broadcastScale, setBroadcastScale] = useState(1);
   const [audioOn, setAudioOn] = useState(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
   // Read broadcast flag post-mount so we don't break Next.js static rendering
-  // with useSearchParams. ?broadcast=1 bumps font scale + hides hover.
+  // with useSearchParams. ?broadcast=1 locks the layout to a 1920×1080 design
+  // canvas (see broadcastScale below) and disables hover transitions.
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     setBroadcast(params.get('broadcast') === '1');
   }, []);
+
+  // Broadcast scaling: render the dashboard at a fixed 1920×1080 design and
+  // CSS-scale to fit whatever viewport OBS gives us (so the operator can use
+  // any browser source resolution without seeing the layout get cropped).
+  useEffect(() => {
+    if (!broadcast) {
+      setBroadcastScale(1);
+      return;
+    }
+    const recompute = () => {
+      const scale = Math.min(window.innerWidth / 1920, window.innerHeight / 1080);
+      setBroadcastScale(scale > 0 ? scale : 1);
+    };
+    recompute();
+    window.addEventListener('resize', recompute);
+    return () => window.removeEventListener('resize', recompute);
+  }, [broadcast]);
 
   // Auto-start the broadcast audio bed in OBS broadcast mode. We don't try
   // autoplay outside broadcast mode because the browser will block it without
@@ -162,11 +181,12 @@ export default function DashboardPage() {
       ? spotlightPool[Math.floor(viewTick / 2) % spotlightPool.length]
       : null;
 
-  return (
+  const dashboard = (
     <div
-      className={`h-screen w-screen bg-[#0a0a0a] text-white flex flex-col font-sans overflow-hidden border-t-4 border-[#CC0000] ${
+      className={`${broadcast ? '' : 'h-screen w-screen'} bg-[#0a0a0a] text-white flex flex-col font-sans overflow-hidden border-t-4 border-[#CC0000] ${
         broadcast ? 'broadcast-mode' : ''
       }`}
+      style={broadcast ? { width: 1920, height: 1080, flex: 'none' } : undefined}
     >
       {/* Top Header */}
       <header className="bg-[#CC0000] h-14 flex items-center px-4 justify-between shrink-0 shadow-lg relative z-20">
@@ -487,14 +507,28 @@ export default function DashboardPage() {
           }
           /* Broadcast capture mode — bump baseline for 1080p H.264 legibility,
              kill hover transitions that would never trigger in a headless OBS browser. */
-          .broadcast-mode {
-            font-size: 18px;
-          }
           .broadcast-mode *:hover {
             transition: none !important;
           }
         `,
       }} />
+    </div>
+  );
+
+  if (!broadcast) return dashboard;
+  return (
+    <div className="h-screen w-screen bg-black overflow-hidden flex items-start justify-start">
+      <div
+        style={{
+          width: 1920,
+          height: 1080,
+          transform: `scale(${broadcastScale})`,
+          transformOrigin: 'top left',
+          flex: 'none',
+        }}
+      >
+        {dashboard}
+      </div>
     </div>
   );
 }
