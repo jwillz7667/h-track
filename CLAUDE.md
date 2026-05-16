@@ -52,13 +52,13 @@ hantacount.com /api/cases/<date> × N       ┘─▶ lib/hantacount.ts (aggrega
 - `app/page.tsx` — `'use client'`. Three `useEffect`s:
   1. Wall clock + 15s view rotation (`viewTick`).
   2. **Drift-corrected polling loop** for `/api/cases` — absolute next-deadline math, NOT `setInterval` (which accumulates drift over 24h).
-  3. Broadcast-flag detection (`?broadcast=1` query → bumps font scale for 1080p H.264 capture).
+  3. Broadcast-flag detection (`?broadcast=1`) → renders the dashboard at a fixed 1920×1080 design canvas wrapped in a `transform: scale(min(vw/1920, vh/1080))` outer div. This guarantees pixel-identical framing regardless of the OBS / headless-chrome window size (anything smaller scales down without cropping, anything larger letterboxes black).
   Renders a **stale pill** in the header when `data.stale === true`; never shows a full-screen error wall when we have any cached data. CC-BY-4.0 attribution footer is **required** — do not remove.
 - `app/layout.tsx` — root layout, Inter + Oswald fonts via CSS variables.
 
-### Center-panel view rotation (15s each, 45s full cycle)
+### Center-panel view rotation (15s each, 30s full cycle)
 
-`viewTick % 3` selects: `0` = world map, `1` = trajectory chart, `2` = country spotlight. Spotlight rotates through the top-6 countries by total cases via `floor(viewTick / 3) % spotlightPool.length`, so each gets ~45s of airtime per full sub-cycle.
+`viewTick % 2` selects: `0` = world map, `1` = country spotlight. Spotlight rotates through the top-6 countries by total cases via `floor(viewTick / 2) % spotlightPool.length`, so each gets ~30s of airtime per full sub-cycle. The outbreak-trajectory view was removed (commit `c905db0`) — it never read well with real data — so if you add a third view, restore the `% 3` math and the pagination dots together.
 
 ### Key shape notes
 
@@ -77,6 +77,17 @@ hantacount.com /api/cases/<date> × N       ┘─▶ lib/hantacount.ts (aggrega
 - `railway.json` — points Railway at the Dockerfile with `/api/health` probe and `ON_FAILURE` restart policy. Mount a volume at `/data` so the cache persists across container restarts.
 - `.github/workflows/ci.yml` — typecheck + build on every push/PR.
 - `.github/workflows/deploy.yml` — Railway deploy on push to `main`. Skips cleanly when `RAILWAY_TOKEN` secret is not set.
+
+## Cloud streaming (24/7 without OBS)
+
+`streamer/` is a standalone Docker image (Debian + Chromium + Xvfb + PulseAudio + ffmpeg) that captures the dashboard headlessly and pushes it to YouTube's RTMP ingest. Designed to run on any small Linux VPS (target: Hetzner CPX21 / CX32 class, ~$8/mo) so the laptop is no longer the broadcast machine.
+
+- `streamer/Dockerfile` — non-root user (uid 1001), uses `tini` as PID 1.
+- `streamer/entrypoint.sh` — boots Xvfb on `:99`, brings up pulseaudio with a `module-null-sink`, launches chromium in `--kiosk --autoplay-policy=no-user-gesture-required` against `$STREAM_URL`, then enters an infinite ffmpeg restart loop (`-f x11grab` + `-f pulse stream_sink.monitor` → `libx264 veryfast` + AAC → `flv` to RTMP). A transient YouTube disconnect re-establishes within 5 s without dropping the container.
+- `streamer/docker-compose.yml` — `shm_size: 1gb` is **required** (chromium crashes on the default 64 MB), `restart: unless-stopped`, log rotation at 10 MB × 5.
+- `streamer/.env.example` — `YOUTUBE_STREAM_KEY` is the only required var; everything else has a 1080p30 default.
+
+To redeploy after dashboard changes: only the *dashboard* needs redeploying (Railway picks up the push). The streamer pulls the page over HTTP at runtime, so it doesn't need rebuilding unless `streamer/` itself changes.
 
 ## Broadcast audio
 

@@ -1,0 +1,15 @@
+services:
+  streamer:
+    build: .
+    image: h-track-streamer
+    container_name: h-track-streamer
+    restart: unless-stopped
+    env_file: .env
+    # Chromium's renderer is hostile to the default 64MB /dev/shm and will
+    # crash with "Out of memory" on the first page navigation otherwise.
+    shm_size: 1gb
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: '5'
